@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>토리미미 냥역기</title>
+<meta name="theme-color" content="#0f7a6c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="냥역기">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 한 손으로 쓰는 폰 화면. 위에서부터 고양이 선택 → 듣기 버튼 → 실시간 그래프 → 번역 → 기록 */
+:root{
+  --bg:#f3f4ef; --surface:#ffffff; --ink:#1c2420; --muted:#5d6862; --line:#d9ddd4;
+  --accent:#0f7a6c; --accent-ink:#ffffff; --mustard:#c99400; --mustard-soft:#f6e9bf;
+  --contour:#0f7a6c; --seg:#e4e8df; --live:#d4472f;
+  --f-display:"Jua","IBM Plex Sans KR",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#141917; --surface:#1d2421; --ink:#eef1ec; --muted:#9aa59f; --line:#323b37;
+  --accent:#3fc1ab; --accent-ink:#0b1714; --mustard:#e9b92e; --mustard-soft:#3a3218;
+  --contour:#5fd6c0; --seg:#27302c; --live:#ff7a5c; color-scheme:dark }}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+  -webkit-tap-highlight-color:transparent}
+.wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+h1{font-family:var(--f-display);font-weight:400;font-size:28px;margin:0;line-height:1.1}
+h1 em{font-style:normal;color:var(--accent)}
+.tag{font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);padding:3px 9px;border-radius:999px;white-space:nowrap}
+.seg{display:flex;border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px;background:var(--surface)}
+.seg button{flex:1;border:0;background:transparent;color:var(--ink);font-family:var(--f-display);font-size:20px;padding:8px 0;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.listen{display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 0}
+#mic{width:132px;height:132px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);font-family:var(--f-display);font-size:22px;cursor:pointer;position:relative;box-shadow:0 0 0 0 transparent;transition:background .2s}
+#mic[aria-pressed="true"]{background:var(--live)}
+#mic .ring{position:absolute;inset:-10px;border-radius:50%;border:3px solid var(--live);opacity:0;transform:scale(var(--lv,1))}
+#mic[aria-pressed="true"] .ring{opacity:.5}
+.status{font-size:14px;color:var(--muted);min-height:1.5em;text-align:center;margin:0}
+.status.hot{color:var(--live);font-weight:700}
+.live{width:100%;height:110px;display:block;border-radius:10px;background:var(--surface);border:1px solid var(--line)}
+.card{background:var(--mustard-soft);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.cat-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.who{font-family:var(--f-display);font-size:15px;background:var(--ink);color:var(--bg);padding:1px 11px;border-radius:999px}
+.kind{font-weight:700;font-size:14px}
+.when{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-left:auto}
+.quote{font-family:var(--f-display);font-size:30px;line-height:1.25;margin:0;text-wrap:balance}
+details{font-size:14px}
+summary{cursor:pointer;color:var(--muted)}
+.evidence{margin:6px 0 0;padding-left:18px}
+.evidence li::marker{color:var(--mustard)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-size:14px;padding:9px 14px;border-radius:10px;cursor:pointer;position:relative;display:inline-flex;align-items:center}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:500}
+.btn[disabled]{opacity:.45}
+input[type=file]{position:absolute;inset:0;opacity:0;width:100%}
+button:focus-visible{outline:2px solid var(--mustard);outline-offset:2px}
+.label{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:6px 0 0}
+.history{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.history li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:10px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.history .t{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.history .q{min-width:0}
+.history .q b{font-weight:700;font-size:13px;margin-right:6px}
+.history .k{font-size:12px;color:var(--muted);white-space:nowrap}
+.empty{color:var(--muted);font-size:14px;padding:6px 2px}
+.foot{font-size:12px;color:var(--muted);margin:8px 0 0}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:max(20px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom));z-index:20}
+.overlay img{max-width:100%;max-height:78vh;border-radius:10px}
+.overlay p{color:#fff;margin:0;font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>토리미미 <em>냥역기</em></h1>
+    <span class="tag">재미로 보는 해석</span>
+  </header>
+
+  <div class="seg" role="group" aria-label="누가 말하는지">
+    <button id="cat-tori" data-cat="tori" aria-pressed="true">토리</button>
+    <button id="cat-mimi" data-cat="mimi" aria-pressed="false">미미</button>
+  </div>
+
+  <div class="listen">
+    <button id="mic" aria-pressed="false"><span class="ring" aria-hidden="true"></span><span id="mic-t">듣기 시작</span></button>
+    <p class="status" id="status" aria-live="polite">버튼을 누르고 고양이 옆에 폰을 두세요</p>
+  </div>
+
+  <canvas id="live" class="live" aria-label="실시간 음 높이"></canvas>
+
+  <section class="card" aria-live="polite">
+    <div class="cat-line"><span class="who" id="r-who">토리</span><span class="kind" id="r-kind">대기 중</span><span class="when" id="r-when"></span></div>
+    <p class="quote" id="r-quote">“야옹 하면 바로 번역해줄게”</p>
+    <details><summary>왜 이렇게 번역했냐면</summary><ul class="evidence" id="r-ev"><li>울음이 들어오면 길이·높이·억양을 재서 알려줘요</li></ul></details>
+    <div class="row">
+      <button class="btn" id="reroll" disabled>다른 말투로</button>
+      <button class="btn primary" id="share" disabled>카드 저장·공유</button>
+      <span class="btn">배경 사진<input id="photo" type="file" accept="image/*"></span>
+    </div>
+  </section>
+
+  <p class="label">오늘의 냥역 기록</p>
+  <ul class="history" id="history"><li class="empty" style="display:block;cursor:default">아직 없어요. 듣기를 켜두면 여기에 쌓여요.</li></ul>
+
+  <p class="foot">울음의 길이·높이·억양을 고양이 발성 연구(Schötz 외, 상황별 야옹 억양 연구 등)의 경향에 맞춰 해석해요. 진짜 감정 판별은 아니에요. 마이크 소리는 폰 안에서만 분석하고 어디에도 보내지 않아요.</p>
+</div>
+
+<script>
+const SR = 16000, HOP = 160, WIN = 640;
+
+/* ---------- 번역 문구 ---------- */
+const KINDS = {
+  greet:   { label: '반가워 / 인사' },
+  food:    { label: '밥 줘' },
+  play:    { label: '놀아줘' },
+  attn:    { label: '문 열어줘 / 여기 봐' },
+  ask:     { label: '궁금해' },
+  sulk:    { label: '싫어 / 불안해' },
+  hunt:    { label: '사냥 모드' },
+  warn:    { label: '건드리지 마' },
+  purr:    { label: '골골송' },
+  meh:     { label: '살짝 서운해' }
+};
+const LINES = {
+  tori: {
+    greet: ['집사 왔다! 현관까지 마중 나왔다옹', '드디어 왔네! 오늘 하루 얘기 좀 해봐', '왔어? 왔어? 기다렸다고!'],
+    food:  ['밥그릇 바닥 보이는 거 안 보여?', '츄르 하나만… 아니 두 개', '배꼽시계 울렸다옹, 지금 밥 시간이야'],
+    play:  ['놀아줘 놀아줘 놀아줘! 지금!', '집사야 장난감 어딨어, 나 준비 끝났어', '심심해서 짧은 다리가 근질근질해'],
+    attn:  ['문 좀 열어줘, 저쪽 방이 궁금해', '나 여기 있어, 나 좀 봐줘', '잠깐만, 할 말 있어'],
+    ask:   ['뭐 해? 그거 나도 해도 돼?', '방금 그 소리 뭐야?', '집사 그거 먹는 거야?'],
+    sulk:  ['미미가 또 놀래켰어… 무서웠다고', '이거 싫어, 그만해줘', '나 지금 좀 불안해, 옆에 있어줘'],
+    hunt:  ['창밖에 새! 저거 잡을 거야', '조준 완료… 근데 유리가 막고 있어', '저 벌레 내 거야'],
+    warn:  ['지금은 건드리지 마', '거기까지야, 한 발짝만 물러서', '나 화났어, 진짜로'],
+    purr:  ['골골골… 집사 옆이 제일 좋아', '이대로 계속 쓰다듬어', '행복 충전 중, 방해 금지'],
+    meh:   ['흥, 아까 나 안 봐줬지', '조금 서운하다옹', '오늘 간식 좀 짰다?']
+  },
+  mimi: {
+    greet: ['어, 왔네. 배 까고 누워 있을 테니 와서 만져', '집사 왔구나, 반가워', '왔어? 나 오늘 드리블 연습했어'],
+    food:  ['밥 줘. 우아하게, 근데 빨리', '간식 시간 지났거든', '그릇이 비었어, 확인해봐'],
+    play:  ['캣휠 앞에 왔으니까 알지? 돌리러 간다', '강아지풀 꺼내, 드리블 들어간다', '토리 놀래키기도 지겨워, 집사가 놀아줘'],
+    attn:  ['문 열어. 저 방 순찰해야 돼', '나 여기 누워 있잖아, 배 만질 시간이야', '이리 와 봐'],
+    ask:   ['그거 뭐야? 굴려봐도 돼?', '방금 토리 어디 갔어?', '집사, 그거 장난감이야?'],
+    sulk:  ['이건 별로야, 그만', '기분 안 좋아, 혼자 있을래', '왜 캣휠 못 타게 해'],
+    hunt:  ['저 새 내가 잡는다, 비켜', '조준 중이니까 조용히 해', '벌레 발견, 출동'],
+    warn:  ['건들지 마, 나 지금 예민해', '한 번만 더 하면 진짜 하악이야', '거리 유지 부탁해'],
+    purr:  ['골골… 뒷다리 쭉 펴고 행복 중', '여기가 명당이야, 계속 만져', '세상 편하다옹'],
+    meh:   ['흥, 토리만 예뻐하지?', '좀 섭섭한데', '아까 약속한 놀이 어디 갔어?']
+  }
+};
+
+/* ---------- 분석 ---------- */
+function yin(x, o) {
+  const W = 320, tMin = 13, tMax = 200, d = new Float32Array(tMax + 1);
+  for (let t = 1; t <= tMax; t++) { let s = 0; for (let j = 0; j < W; j++) { const q = x[o + j] - x[o + j + t]; s += q * q; } d[t] = s; }
+  let run = 0; const c = new Float32Array(tMax + 1); c[0] = 1;
+  for (let t = 1; t <= tMax; t++) { run += d[t]; c[t] = run ? d[t] * t / run : 1; }
+  let best = -1;
+  for (let t = tMin; t <= tMax; t++) if (c[t] < .15) { while (t + 1 <= tMax && c[t + 1] < c[t]) t++; best = t; break; }
+  if (best < 0) { let m = 1e9; for (let t = tMin; t <= tMax; t++) if (c[t] < m) { m = c[t]; best = t; } if (m > .3) return 0; }
+  let tau = best;
+  if (best > tMin && best < tMax) { const a = c[best - 1], b = c[best], e = c[best + 1], den = a - 2 * b + e; if (den) tau = best + .5 * (a - e) / den; }
+  return SR / tau;
+}
+const median = a => { if (!a.length) return 0; const s = [...a].sort((p, q) => p - q); return s[s.length >> 1]; };
+
+function analyze(x) {
+  const nF = Math.max(0, Math.floor((x.length - WIN) / HOP) + 1);
+  const rms = new Float32Array(nF), zcr = new Float32Array(nF), f0 = new Float32Array(nF);
+  for (let i = 0; i < nF; i++) {
+    const o = i * HOP; let s = 0, z = 0;
+    for (let j = 0; j < WIN; j++) { s += x[o + j] ** 2; if (j && (x[o + j] >= 0) !== (x[o + j - 1] >= 0)) z++; }
+    rms[i] = Math.sqrt(s / WIN); zcr[i] = z / WIN;
+  }
+  const sorted = [...rms].sort((a, b) => a - b), peak = sorted[sorted.length - 1] || 0, noise = sorted[Math.floor(sorted.length * .1)] || 0;
+  const thr = Math.max(noise * 3, peak * .12, .003);
+  for (let i = 0; i < nF; i++) if (rms[i] > thr) f0[i] = yin(x, i * HOP);
+  // 구간 나누기
+  let segs = [], cur = null;
+  for (let i = 0; i < nF; i++) {
+    if (rms[i] > thr) { if (cur && i - cur.e <= 8) cur.e = i; else { cur = { s: i, e: i }; segs.push(cur); } }
+  }
+  segs = segs.filter(s => s.e - s.s + 1 >= 5);
+  let active = 0, voiced = 0, zsum = 0;
+  const calls = [];
+  for (const s of segs) {
+    const fs = []; let v = 0;
+    for (let i = s.s; i <= s.e; i++) { active++; zsum += zcr[i]; if (f0[i]) { v++; fs.push(f0[i]); } }
+    voiced += v;
+    s.dur = (s.e - s.s + 1) * HOP / SR; s.vf = v / (s.e - s.s + 1);
+    if (s.vf > .3 && fs.length >= 3) {
+      // 옥타브 튐 정리
+      const m = median(fs);
+      const clean = fs.map(f => f > m * 1.7 ? f / 2 : f < m / 1.7 ? f * 2 : f);
+      const k = Math.max(1, Math.round(clean.length * .3));
+      const a = median(clean.slice(0, k)), e = median(clean.slice(-k));
+      const midSlice = clean.slice(k, clean.length - k), b = midSlice.length ? Math.max(...midSlice.map((_, i, arr) => median(arr.slice(Math.max(0, i - 2), i + 3)))) : (a + e) / 2;
+      s.f0 = median(clean); s.slope = (e - a) / a;
+      s.shape = b > Math.max(a, e) * 1.08 ? 'riseFall' : s.slope > .08 ? 'rise' : s.slope < -.08 ? 'fall' : 'level';
+      calls.push(s);
+    }
+  }
+  const span = segs.length ? (segs[segs.length - 1].e - segs[0].s + 1) * HOP / SR : 0;
+  // 골골 감지: 20~40Hz 진폭 떨림
+  let purrScore = 0;
+  if (segs.length) {
+    const s0 = segs.reduce((a, b) => (b.e - b.s > a.e - a.s ? b : a));
+    const a0 = s0.s * HOP, a1 = Math.min(x.length, (s0.e + 1) * HOP + WIN), step = 16, env = [];
+    for (let i = a0; i < a1 - step; i += step) { let m = 0; for (let j = 0; j < step; j++) m += Math.abs(x[i + j]); env.push(m / step); }
+    const mean = env.reduce((p, q) => p + q, 0) / (env.length || 1), e2 = env.map(v => v - mean);
+    const r0 = e2.reduce((p, q) => p + q * q, 0) || 1;
+    for (let lag = Math.round(SR / 40 / step); lag <= Math.round(SR / 18 / step); lag++) {
+      let r = 0; for (let i = 0; i + lag < e2.length; i++) r += e2[i] * e2[i + lag];
+      purrScore = Math.max(purrScore, r / r0);
+    }
+  }
+  const voicedCalls = calls;
+  const shapes = voicedCalls.map(c => c.shape);
+  const main = voicedCalls.length ? voicedCalls.reduce((a, b) => (b.dur > a.dur ? b : a)) : null;
+  const tally = {}; shapes.forEach(s => tally[s] = (tally[s] || 0) + 1);
+  const shape = shapes.length ? Object.entries(tally).sort((a, b) => b[1] - a[1] || (a[0] === main.shape ? -1 : 1))[0][0] : null;
+  return {
+    nF, rms, f0, thr, segs, calls: voicedCalls, nSegs: segs.length,
+    durMean: voicedCalls.length ? voicedCalls.reduce((p, c) => p + c.dur, 0) / voicedCalls.length : (segs.length ? segs.reduce((p, c) => p + c.dur, 0) / segs.length : 0),
+    f0Mean: voicedCalls.length ? median(voicedCalls.map(c => c.f0)) : 0,
+    voicedRatio: active ? voiced / active : 0, zcr: active ? zsum / active : 0,
+    activeDur: active * HOP / SR, span, rate: span ? segs.length / span : 0, shape, purrScore, length: x.length / SR
+  };
+}
+
+const SHAPE_KO = { rise: '↗ 올라감', fall: '↘ 내려감', riseFall: '↗↘ 오르내림', level: '→ 평평' };
+function classify(F) {
+  const ev = [], add = s => ev.push(s);
+  if (!F.nSegs) return { key: null };
+  if (F.voicedRatio < .25) {
+    if (F.activeDur > 1.2 && F.purrScore > .35) {
+      add(`음높이 없이 낮은 진동이 ${F.activeDur.toFixed(1)}초 이어짐`);
+      add('초당 20–30번 떨리는 패턴 → 골골송의 특징 (약 20–30Hz)');
+      return { key: 'purr', ev, conf: Math.min(.95, .5 + F.purrScore / 2) };
+    }
+    add('음높이가 거의 안 잡히는 바람 소리');
+    add('하악·스핏처럼 공기를 내뿜는 소리는 경고 신호');
+    return { key: 'warn', ev, conf: .6 };
+  }
+  const segDur = F.segs.reduce((p, c) => p + c.dur, 0) / F.segs.length;
+  if (F.nSegs >= 4 && segDur < .22 && F.rate > 2.5) {
+    add(`${F.nSegs}번의 짧은 소리 (평균 ${segDur.toFixed(2)}초)`);
+    add(`초당 ${F.rate.toFixed(1)}번으로 빠르게 반복`);
+    add('채터·칩(약 0.15초)은 닿지 않는 사냥감을 볼 때 많이 냄');
+    return { key: 'hunt', ev, conf: .75 };
+  }
+  const d = F.durMean, f = F.f0Mean, sh = F.shape;
+  add(`한 번 울 때 ${d.toFixed(2)}초 · ${d < .5 ? '짧은 편' : d > 1.2 ? '긴 편' : '보통'}`);
+  add(`평균 높이 ${Math.round(f)}Hz · ${f > 550 ? '높은 편' : f < 380 ? '낮은 편' : '보통'}`);
+  add(`억양 ${SHAPE_KO[sh]}`);
+  if (f < 280 && d > .7) { add('낮고 길게 끄는 소리는 으르렁에 가까운 경고 톤'); return { key: 'warn', ev, conf: .6 }; }
+  if (d > 1.2 && sh === 'fall') { add('길고 끝이 내려가는 야옹은 이동장 같은 부정적 상황에서 많이 보고됨'); return { key: 'sulk', ev, conf: .7 }; }
+  if (d < .5 && sh === 'rise') { add('짧고 높고 올라가는 야옹은 긍정적 상황(인사)에서 많음'); return { key: f > 450 ? 'greet' : 'ask', ev, conf: f > 450 ? .8 : .55 }; }
+  if (sh === 'riseFall') {
+    if (F.calls.length >= 2 && f > 560) { add('오르내리는 야옹을 높게 반복 → 놀이 상황 패턴과 비슷'); return { key: 'play', ev, conf: .6 }; }
+    add('오르다 내려가는 야옹은 밥 기다릴 때 자주 나오는 억양'); return { key: 'food', ev, conf: F.calls.length >= 2 ? .7 : .55 };
+  }
+  if (sh === 'level') { add('높낮이가 평평한 야옹은 문 앞·관심 요청 상황에서 많음'); return { key: 'attn', ev, conf: .6 }; }
+  if (sh === 'rise') { add('끝이 올라가는 야옹은 대체로 긍정적이고 묻는 듯한 톤'); return { key: 'ask', ev, conf: .55 }; }
+  add('끝이 내려가는 톤이라 살짝 불만 섞인 느낌'); return { key: d > .9 ? 'sulk' : 'meh', ev, conf: .45 };
+}
+
+/* ---------- 실시간 듣기 ---------- */
+const state = { cat: 'tori', cur: null, photo: null, hist: [] };
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let ac = null, stream = null, proc = null, srcNode = null, wake = null;
+let listening = false;
+const PRE = SR * .35, MAXLEN = SR * 6;
+let ring = new Float32Array(PRE), ringPos = 0;
+let frameBuf = new Float32Array(HOP), framePos = 0;
+let ctxBuf = new Float32Array(WIN + 1), ctxPos = 0; // 최근 WIN 샘플
+let rec = null, recLen = 0, quiet = 0, loud = 0, floor = 0, frames = 0;
+let resPhase = 0, step = 3;
+const liveF0 = []; // 최근 5초
+let level = 0;
+
+function pushSample(v) {
+  ring[ringPos] = v; ringPos = (ringPos + 1) % PRE;
+  ctxBuf.copyWithin(0, 1); ctxBuf[WIN] = v;
+  if (rec) { if (recLen < rec.length) rec[recLen++] = v; }
+  frameBuf[framePos++] = v;
+  if (framePos === HOP) { framePos = 0; onFrame(); }
+}
+function onFrame() {
+  let s = 0; for (let i = 0; i < HOP; i++) s += frameBuf[i] * frameBuf[i];
+  const r = Math.sqrt(s / HOP); frames++;
+  level = level * .7 + r * .3;
+  if (frames < 30) { floor = frames === 1 ? r : Math.min(floor, r) * .5 + floor * .5; floor = Math.max(floor, .0004); liveF0.push(0); return; }
+  if (!rec) floor = r < floor ? floor * .9 + r * .1 : floor * 1.003;
+  floor = Math.max(floor, .0004);
+  const on = Math.max(floor * 5, .006), off = Math.max(floor * 3, .004);
+  let f = 0;
+  if (r > off && frames % 2 === 0) { f = yin(ctxBuf, 0); }
+  liveF0.push(r > off ? (f || -1) : 0); if (liveF0.length > 500) liveF0.splice(0, liveF0.length - 500);
+  if (!rec) {
+    loud = r > on ? loud + 1 : 0;
+    if (loud >= 3) {
+      rec = new Float32Array(PRE + MAXLEN); recLen = 0;
+      for (let i = 0; i < PRE; i++) rec[recLen++] = ring[(ringPos + i) % PRE];
+      quiet = 0; setStatus('야옹 감지! 듣는 중…', true);
+    }
+  } else {
+    quiet = r < off ? quiet + 1 : 0;
+    if (quiet >= 70 || recLen >= rec.length - 1) finish();
+  }
+}
+function finish() {
+  const x = rec.slice(0, recLen); rec = null; loud = 0;
+  setStatus('조용히 듣는 중…');
+  const F = analyze(x);
+  if (!F.nSegs || F.activeDur < .12) return;
+  if (F.voicedRatio > .5 && F.f0Mean && F.f0Mean < 260) { setStatus('사람 말소리 같아서 넘겼어요'); return; }
+  const R = classify(F); if (!R.key) return;
+  const item = { cat: state.cat, key: R.key, ev: R.ev, conf: R.conf, pick: Math.floor(Math.random() * 3), at: new Date(), feat: F };
+  state.hist.unshift(item); if (state.hist.length > 30) state.hist.pop();
+  show(item); renderHist();
+  if (navigator.vibrate) try { navigator.vibrate(40); } catch (e) {}
+}
+function setStatus(t, hot) { const s = $('status'); s.textContent = t; s.classList.toggle('hot', !!hot); }
+
+async function start() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  } catch (e) {
+    setStatus('마이크를 쓸 수 없어요. 브라우저 설정에서 이 사이트의 마이크를 허용해 주세요.'); return;
+  }
+  const AC = window.AudioContext || window.webkitAudioContext; ac = new AC();
+  if (ac.state === 'suspended') await ac.resume();
+  step = ac.sampleRate / SR; resPhase = 0;
+  srcNode = ac.createMediaStreamSource(stream);
+  proc = ac.createScriptProcessor(2048, 1, 1);
+  proc.onaudioprocess = e => {
+    const inp = e.inputBuffer.getChannelData(0);
+    // 16kHz로 줄이기 (구간 평균)
+    while (resPhase < inp.length) {
+      const a = Math.floor(resPhase), b = Math.min(inp.length, Math.floor(resPhase + step)); let s = 0;
+      for (let i = a; i < b; i++) s += inp[i];
+      pushSample(b > a ? s / (b - a) : inp[a]); resPhase += step;
+    }
+    resPhase -= inp.length;
+  };
+  srcNode.connect(proc); proc.connect(ac.destination);
+  frames = 0; listening = true;
+  $('mic').setAttribute('aria-pressed', 'true'); $('mic-t').textContent = '듣는 중';
+  setStatus('주변 소음 재는 중…');
+  setTimeout(() => { if (listening && !rec) setStatus('조용히 듣는 중…'); }, 400);
+  try { wake = await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+function stop() {
+  listening = false; rec = null;
+  try { proc && proc.disconnect(); srcNode && srcNode.disconnect(); } catch (e) {}
+  stream && stream.getTracks().forEach(t => t.stop()); ac && ac.close();
+  try { wake && wake.release(); } catch (e) {} wake = null;
+  $('mic').setAttribute('aria-pressed', 'false'); $('mic-t').textContent = '듣기 시작';
+  setStatus('멈췄어요. 다시 누르면 들어요');
+}
+$('mic').onclick = () => listening ? stop() : start();
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && listening) { try { wake = await navigator.wakeLock.request('screen'); } catch (e) {} if (ac && ac.state === 'suspended') ac.resume(); }
+});
+
+/* ---------- 화면 ---------- */
+function drawLive() {
+  const cv = $('live'), dpr = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  if (cv.width !== w * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const lo = Math.log(150), hi = Math.log(1200), y = f => 8 + (h - 16) * (1 - (Math.log(f) - lo) / (hi - lo));
+  g.strokeStyle = css('--line'); g.fillStyle = css('--muted'); g.font = '10px "IBM Plex Mono", monospace';
+  for (const f of [200, 400, 800]) { g.beginPath(); g.moveTo(40, y(f)); g.lineTo(w - 6, y(f)); g.stroke(); g.fillText(f + 'Hz', 4, y(f) + 3); }
+  const n = 500, dx = (w - 46) / n, off = n - liveF0.length;
+  g.fillStyle = css('--seg');
+  for (let i = 0; i < liveF0.length; i++) if (liveF0[i]) g.fillRect(40 + (off + i) * dx, 4, dx + .5, h - 8);
+  g.fillStyle = css('--contour');
+  for (let i = 0; i < liveF0.length; i++) { const f = liveF0[i]; if (f > 150 && f < 1200) { g.beginPath(); g.arc(40 + (off + i) * dx, y(f), 2, 0, 7); g.fill(); } }
+  if (!listening) { g.fillStyle = css('--muted'); g.font = '13px "IBM Plex Sans KR", sans-serif'; g.fillText('듣기를 켜면 음 높이가 실시간으로 그려져요', 48, h / 2 + 4); }
+  $('mic').style.setProperty('--lv', listening ? (1 + Math.min(.25, level * 6)).toFixed(3) : 1);
+  if (listening && !rec) { liveF0.length || 0; }
+  requestAnimationFrame(drawLive);
+}
+function show(item) {
+  state.cur = item;
+  const name = item.cat === 'tori' ? '토리' : '미미';
+  $('r-who').textContent = name; $('r-kind').textContent = KINDS[item.key].label;
+  $('r-when').textContent = item.at.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  $('r-quote').textContent = '“' + LINES[item.cat][item.key][item.pick % 3] + '”';
+  const ul = $('r-ev'); ul.textContent = '';
+  item.ev.forEach(t => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
+  const li = document.createElement('li'); li.textContent = '냥역 확신도 ' + Math.round(item.conf * 100) + '%'; ul.appendChild(li);
+  $('reroll').disabled = false; $('share').disabled = false;
+}
+function renderHist() {
+  const ul = $('history'); ul.textContent = '';
+  if (!state.hist.length) { const li = document.createElement('li'); li.className = 'empty'; li.style.display = 'block'; li.textContent = '아직 없어요. 듣기를 켜두면 여기에 쌓여요.'; ul.appendChild(li); return; }
+  state.hist.forEach(it => {
+    const li = document.createElement('li');
+    const t = document.createElement('span'); t.className = 't'; t.textContent = it.at.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    const q = document.createElement('span'); q.className = 'q';
+    const b = document.createElement('b'); b.textContent = it.cat === 'tori' ? '토리' : '미미';
+    q.append(b, document.createTextNode(LINES[it.cat][it.key][it.pick % 3]));
+    const k = document.createElement('span'); k.className = 'k'; k.textContent = KINDS[it.key].label;
+    li.append(t, q, k); li.onclick = () => { show(it); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    ul.appendChild(li);
+  });
+}
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+  state.cat = b.dataset.cat; document.querySelectorAll('.seg button').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+  if (state.cur) { state.cur.cat = state.cat; show(state.cur); renderHist(); } else $('r-who').textContent = b.textContent;
+});
+$('reroll').onclick = () => { if (state.cur) { state.cur.pick++; show(state.cur); renderHist(); } };
+$('photo').onchange = e => { const f = e.target.files[0]; if (!f) return; const im = new Image(); im.onload = () => { state.photo = im; setStatus('배경 사진을 넣었어요'); }; im.src = URL.createObjectURL(f); e.target.value = ''; };
+
+/* ---------- 카드 ---------- */
+function wrapLines(g, text, maxW) {
+  const out = []; let line = '';
+  for (const ch of text) { const t = line + ch; if (g.measureText(t).width > maxW && line) { out.push(line); line = ch.trim() ? ch : ''; } else line = t; }
+  if (line) out.push(line); return out;
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+async function makeCard(item) {
+  try { await Promise.all([document.fonts.load('80px "Jua"'), document.fonts.load('500 30px "IBM Plex Sans KR"')]); } catch (e) {}
+  const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
+  if (state.photo) { const im = state.photo, s = Math.max(W / im.width, H / im.height); g.drawImage(im, (W - im.width * s) / 2, (H - im.height * s) / 2, im.width * s, im.height * s); }
+  else {
+    g.fillStyle = '#0f7a6c'; g.fillRect(0, 0, W, H); g.fillStyle = 'rgba(255,255,255,.07)';
+    for (let r = 0; r < 9; r++) for (let c = 0; c < 7; c++) { const px = c * 170 + (r % 2) * 85, py = r * 150 + 40; g.beginPath(); g.ellipse(px, py + 18, 30, 24, 0, 0, 7); g.fill(); for (const [dx, dy] of [[-30, -22], [-10, -36], [12, -36], [32, -22]]) { g.beginPath(); g.ellipse(px + dx, py + dy, 11, 13, 0, 0, 7); g.fill(); } }
+  }
+  const cat = item.cat === 'tori' ? '토리' : '미미', quote = LINES[item.cat][item.key][item.pick % 3];
+  g.font = '86px "Jua", sans-serif';
+  const lines = wrapLines(g, '“' + quote + '”', W - 160), boxH = 120 + lines.length * 108 + 200, by = H - boxH - 60;
+  g.fillStyle = 'rgba(255,255,255,.94)'; roundRect(g, 50, by, W - 100, boxH, 36); g.fill();
+  g.font = '44px "Jua", sans-serif'; const cw = g.measureText(cat).width + 70;
+  g.fillStyle = '#1c2420'; roundRect(g, 90, by + 44, cw, 64, 32); g.fill();
+  g.fillStyle = '#ffffff'; g.fillText(cat, 125, by + 92);
+  g.fillStyle = '#5d6862'; g.font = '500 32px "IBM Plex Sans KR", sans-serif'; g.fillText(KINDS[item.key].label, 90 + cw + 24, by + 88);
+  g.fillStyle = '#1c2420'; g.font = '86px "Jua", sans-serif'; lines.forEach((l, i) => g.fillText(l, 90, by + 210 + i * 108));
+  const F = item.feat, gy = by + 210 + lines.length * 108 - 20, gh = 80, gx = 90, gw = W - 180;
+  if (F && F.nF) { g.fillStyle = '#c99400'; const lo = Math.log(150), hi = Math.log(1200);
+    for (let i = 0; i < F.nF; i++) { const f = F.f0[i]; if (f > 150 && f < 1200) { g.beginPath(); g.arc(gx + gw * i / F.nF, gy + gh * (1 - (Math.log(f) - lo) / (hi - lo)), 4, 0, 7); g.fill(); } } }
+  g.fillStyle = '#5d6862'; g.font = '500 28px "IBM Plex Sans KR", sans-serif';
+  g.fillText('@tori_mimi_ · 토리미미 냥역기', 90, by + boxH - 42);
+  const tag = '재미로 보는 해석'; g.fillText(tag, W - 90 - g.measureText(tag).width, by + boxH - 42);
+  return cv;
+}
+$('share').onclick = async () => {
+  if (!state.cur) return;
+  const cv = await makeCard(state.cur);
+  const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+  const file = new File([blob], (state.cur.cat === 'tori' ? '토리' : '미미') + '_냥역.png', { type: 'image/png' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const ov = document.createElement('div'); ov.className = 'overlay';
+  const im = document.createElement('img'); im.src = URL.createObjectURL(blob); im.alt = '냥역 카드';
+  const p = document.createElement('p'); p.textContent = '이미지를 길게 눌러 저장하세요';
+  const b = document.createElement('button'); b.className = 'btn'; b.textContent = '닫기'; b.onclick = () => ov.remove();
+  ov.append(im, p, b); document.body.appendChild(ov);
+};
+
+if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) setStatus('이 브라우저는 마이크를 지원하지 않아요. 사파리나 크롬으로 열어주세요.');
+requestAnimationFrame(drawLive);
+</script>
+</body>
+</html>
